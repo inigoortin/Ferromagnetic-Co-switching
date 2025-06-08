@@ -6,6 +6,7 @@ Created on Mon Apr 14 13:17:23 2025
 """
 
 # %% Libraries
+
 import pandas as pd
 import numpy as np
 import seaborn as sns
@@ -21,7 +22,8 @@ palette = sns.color_palette("muted")
 MR = pd.read_csv("aval_MR_N.csv")
 MO = pd.read_csv("aval_MOKE_N.csv")
 
-# %% Slope and magnetization between avalanches
+# %% Exploration
+# %%% Creation of file
 
 rango = [i for i in range(0, 202) if i != 165] # File 165 is incorrect
 ajuste_MR = pd.DataFrame([[0,0,0,0]], columns=['M', 'm', 'b', 'Archivo'])
@@ -29,7 +31,7 @@ ajuste_MR = pd.DataFrame([[0,0,0,0]], columns=['M', 'm', 'b', 'Archivo'])
 for i in rango:
     MRi = MR[MR['Archivo']==i]
     l = len(MRi)
-    url = f'Datos/hysteresis_deg_{i}.dat' 
+    url = f'Data_A/hysteresis_deg_{i}.dat' 
     columnas = ['Corriente', 'MOKE', 'MR']
     df = pd.read_csv(url, delim_whitespace=True, header =None, names = columnas)
     df['t']=range(len(df))
@@ -56,125 +58,9 @@ ajuste_MR = ajuste_MR.iloc[1:].reset_index(drop=True)
 
 ajuste_MR.to_csv('pendientes_A.csv', index=False)
 
-# %% Ajuste sigmoide creciente
-# Función de crecimiento sigmoide (solo la parte ascendente)
-def sigmoide_creciente(x, L, k, x_0):
-    return L * (1 - np.exp(-k * (x - x_0)))
+# %% Prediction model
+# %%% Constant fit
 
-# Datos
-x = ajuste_MR['M'].values
-y = ajuste_MR['m'].values
-
-# Ajuste de la sigmoide creciente
-params, _ = curve_fit(sigmoide_creciente, x, y, p0=[max(y), 1, np.median(x)])
-
-# Visualización
-x_vals = np.linspace(x.min(), x.max(), 500)
-y_fit = sigmoide_creciente(x_vals, *params)
-
-plt.figure(figsize=(8,6))
-plt.scatter(x, y, color=palette[0], alpha=0.5, label='Datos')
-plt.plot(x_vals, y_fit, '--', color=palette[1], label='Ajuste sigmoide creciente')
-plt.xlabel('M')
-plt.ylabel('m')
-plt.title('Ajuste sigmoide creciente')
-plt.legend()
-plt.grid(True)
-plt.show()
-
-print(f"Parámetros ajustados: L={params[0]:.4f}, k={params[1]:.4f}, x_0={params[2]:.4f}")
-
-# %% Ajuste sigmoide creciente (incertidumbre)
-# Función de crecimiento sigmoide (solo la parte ascendente)
-def sigmoide_creciente(x, L, k, x_0):
-    return L * (1 - np.exp(-k * (x - x_0)))
-
-# Datos
-x = ajuste_MR['M'].values
-y = ajuste_MR['m'].values
-
-# Ajuste de la sigmoide creciente
-params, covariance_matrix = curve_fit(sigmoide_creciente, x, y, p0=[max(y), 1, np.median(x)])
-#params, covariance_matrix = curve_fit(sigmoide_gen, x, y, p0=[2,12])
-
-# Calcular incertidumbre (desviación estándar de los parámetros)
-uncertainties = np.sqrt(np.diag(covariance_matrix))
-
-# Crear un rango de valores x para dibujar la curva ajustada y sus incertidumbres
-x_vals = np.linspace(x.min(), x.max(), 500)
-y_fit = sigmoide_creciente(x_vals, *params)
-
-# Calcular las bandas de incertidumbre
-y_upper = sigmoide_creciente(x_vals, *(params + uncertainties))
-y_lower = sigmoide_creciente(x_vals, *(params - uncertainties))
-
-plt.figure(figsize=(8,6))
-# Visualización
-plt.scatter(x, y, color=palette[0], alpha=0.3, label='Datos')
-plt.plot(x_vals, y_fit, '--', color=palette[1], label='Ajuste sigmoide creciente')
-plt.axvline(15, color=palette[3], linewidth=2)
-
-# Banda de incertidumbre
-plt.fill_between(x_vals, y_lower, y_upper, color=palette[1], alpha=0.3, label='Incertidumbre del ajuste')
-
-plt.xlabel('M')
-plt.ylabel('m')
-plt.title('Ajuste sigmoide creciente con incertidumbre')
-plt.legend()
-#plt.grid(True)
-plt.show()
-
-# Mostrar los parámetros ajustados y sus incertidumbres
-print("Parámetros ajustados:")
-print(f"L = {params[0]:.4f} ± {uncertainties[0]:.4f}")
-print(f"k = {params[1]:.4f} ± {uncertainties[1]:.4f}")
-print(f"x_0 = {params[2]:.4f} ± {uncertainties[2]:.4f}")
-
-# %% Ajuste sigmoide generalizada
-def sigmoide_gen (x,a,b):
-    return np.log(a**(x-b)/(1+a**(x-b)))
-
-# Datos
-d = ajuste_MR[ajuste_MR['M']>15]
-x = d['M'].values
-y = d['m'].values
-
-# Ajuste de la sigmoide generalizada
-params, _ = curve_fit(sigmoide_gen, x, y, p0=[2,12])
-
-# Visualización
-x_vals = np.linspace(x.min(), x.max(), 500)
-y_fit = sigmoide_gen(x_vals, *params)
-
-coeffs = np.polyfit(x, y, deg=2)
-p = np.poly1d(coeffs)
-print("Coeficientes del polinomio ajustado:", coeffs)
-
-# Evaluar el polinomio en un rango suave de x para graficar
-x1_fit = np.linspace(15, max(x), 100)
-y1_fit = p(x1_fit)
-
-plt.figure(figsize=(8,6))
-plt.scatter(x, y, color=palette[0], alpha=0.3, label='Datos')
-plt.plot(x1_fit, y1_fit, '--', color=palette[2], label='Ajuste polinómico')
-
-plt.plot(x_vals, y_fit, '--', color=palette[1], label='Ajuste sigmoide generalizada')
-plt.axvline(15, color=palette[3], linewidth=2)
-
-# params, _ = curve_fit(sigmoide_creciente, x, y, p0=[max(y), 1, np.median(x)])
-# Visualización
-# y_fit = sigmoide_creciente(x_vals, *params)
-# plt.plot(x_vals, y_fit, '--', color=palette[2], label='Ajuste sigmoide creciente')
-
-plt.xlabel('M')
-plt.ylabel('m')
-#plt.title('Ajuste sigmoide generalizada')
-plt.legend()
-plt.show()
-
-print(f"Parámetros ajustados: a={params[0]:.4f}, b={params[1]:.4f}")
-
-# %% Constant fit
 pendientes_A = pd.read_csv('pendientes_A.csv')
 
 x = pendientes_A['M'].values
@@ -200,6 +86,7 @@ plt.xticks(fontsize=30)
 plt.yticks(fontsize=30)
 plt.ylim(-0.13,0.65)
 plt.xlim(0,)
+
 plt.tick_params(axis='x', which='major', length=12)
 plt.tick_params(axis='x', which='minor', length=4)
 plt.tick_params(axis='y', which='major', length=12)
@@ -211,7 +98,8 @@ plt.legend(frameon=True,facecolor='white',edgecolor='lightgrey',framealpha=0.9,
 plt.savefig('pendientesA.pdf')
 plt.show()
 
-# %% Joint slopes plot
+# %%% Joint slopes plot
+
 fig, axes = plt.subplots(1, 2, figsize=(20, 8.5), sharey=True)
 
 for i, ax in enumerate(axes):
@@ -246,12 +134,12 @@ for i, ax in enumerate(axes):
 
     if i == 0:
         ax.set_ylabel('m', fontsize=35)
-        ax.set_xlabel(r'$\langle M \rangle $', fontsize=35)
+        ax.set_xlabel(r'$\langle MOKE \rangle $', fontsize=35, labelpad=10)
         for label in ax.get_yticklabels():
             label.set_fontsize(30)    
         ax.set_title('Dataset A', fontsize=38)
     else:
-        ax.set_xlabel(r'$\langle M \rangle$', fontsize=35)
+        ax.set_xlabel(r'$\langle MOKE \rangle$', fontsize=35, labelpad=10)
         ax.set_ylabel('')
         #ax.set_xticks(np.arange(-20, -181, -40)) 
         #ax.set_xticks(np.arange(-20, -180, -8), minor=True)
@@ -263,21 +151,32 @@ plt.tight_layout()
 plt.savefig('pendientes_conjunto.pdf')
 plt.show()
 
-# %% Prediction with slope method
+# %%% Prediction function
+
 def crear_pred_m ():
+    '''
+
+    Returns
+    -------
+    pred_m : TYPE
+        Prediction dataframe with initial anf final time, MR signal and file index.
+
+    '''
     rango = [i for i in range(0, 202) if i != 165] # file 165 is incorrect
     columnas = ['Corriente', 'MOKE', 'MR']
     pred_m = pd.DataFrame([[0,0,0,0]], columns=['ti', 'tf','MR', 'Archivo'])
+    
     for j in rango:
         if j % 50 == 0:
             print(j)
         predj = []
-        url = f'Datos/hysteresis_deg_{j}.dat'   
+        url = f'Data_A/hysteresis_deg_{j}.dat'   
         df = pd.read_csv(url, delim_whitespace=True, header =None, names = columnas)
         df['t']=range(len(df))        
         df = df[df['Corriente']<=-0.025141]
         minM = min(df['MOKE'])
         df['M'] = (df['MOKE'] - minM) / (df['MOKE'].max() - minM)
+        
         for i in range(df.index[0]+10,len(df['t'])):
             MRpj = df['MR'][i]
             df_aux = df[(df['t'] >= i - 10) & (df['t'] <= i)]
@@ -304,6 +203,7 @@ def crear_pred_m ():
                 predj.append([i,m1,MRpj])
         l = len(predj) - 1
         k = 1 # secondary index to move from a sequence of precursors to the next one
+        
         while l >= 1:
             if k ==1: # We save the end
                 final = predj[l][0]
@@ -324,7 +224,28 @@ def crear_pred_m ():
 
 # %% Plot avalanches and precursors
 def aval_plot(avMR, avMO, avP, i):
-    url = f'Datos/hysteresis_deg_{i}.dat' 
+    '''
+
+    Parameters
+    ----------
+    avMR : TYPE
+        MR avalanches dataframe.
+    avMO : TYPE
+        MOKE avalanches dataframe.
+    avP : TYPE
+        Precursors dataframe.
+    i : TYPE
+        File index.
+
+    Returns
+    -------
+    None.
+    
+    Creates a plot with the MR and MOKE signal.
+    Flags avalanches and precursors.
+
+    '''
+    url = f'Data_A/hysteresis_deg_{i}.dat' 
     columnas = ['Corriente', 'MOKE', 'MR']
     df = pd.read_csv(url, delim_whitespace=True, header =None, names = columnas)
     df['t']=range(len(df))        
@@ -360,7 +281,6 @@ def aval_plot(avMR, avMO, avP, i):
     ax1.tick_params(axis='y', labelsize=14)
     ax2.tick_params(axis='y', labelsize=14)
 
-
     #ax1.set_xlim(750, 920)
     #ax2.set_ylim(48,52)
     #ax1.set_title('MOKE and MR vs Time')
@@ -375,8 +295,33 @@ def aval_plot(avMR, avMO, avP, i):
     plt.savefig(f'predictores_{i}.pdf')
     plt.show()
 
-# %% Precursors metrics
+
+# %% Metrics
+# %%% Precursors metrics function
+
 def verificar_prediccion (df, df_aval, ventana=4):
+    
+    '''
+
+    Parameters
+    ----------
+    df : TYPE
+        Precursors Dataframe.
+    df_aval : TYPE
+        MR avalanches Dataframe.
+    ventana : TYPE, optional
+        DESCRIPTION. The default is 4. 
+        Length of the window to verify the occurrence of an avalanche after a precursor. 
+
+    Returns
+    -------
+    list
+        [0] = Number of Avalanches detected.
+        [1] = Number of False Positives.
+        [2] = Precision,
+        [3] = Number of actual avalanches.
+        
+    '''
     l = len(df)
     df['Result']=0
     df_aval['M-Aux'] = 0
@@ -398,7 +343,8 @@ def verificar_prediccion (df, df_aval, ventana=4):
     TE = 1-FP/l # Success rate (TE='Tasa de éxito')
     return ([A,FP, TE, l])
 
-# %% Precursor metrics - data set A
+# %%%% Metrics - Dataset A
+
 pred_m_A = crear_pred_m()
 #pred_m_A.to_csv('pred_m_A.csv', index=False)
 #pred_m_A = pd.read_csv('pred_m_A.csv')
@@ -411,12 +357,33 @@ from matplotlib import cm
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 
 def plot_custom_conf_matrix(ax, TP, FP, FN, title=''):
-    # Cálculos
+    '''
+    
+
+    Parameters
+    ----------
+    ax : TYPE
+        DESCRIPTION.
+    TP : TYPE
+        Number of True Positives.
+    FP : TYPE
+        Number of False Positives.
+    FN : TYPE
+        Number of False Negatives.
+    title : TYPE, optional
+        Title of the plot. The default is ''.
+
+    Returns
+    -------
+    None.
+
+    '''
+    # Metrics
     precision = TP / (TP + FP) if (TP + FP) else 0
     recall = TP / (TP + FN) if (TP + FN) else 0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0
 
-    # Valores y etiquetas
+    # Values and labels
     matrix = np.array([
         [TP, FN],
         [FP, 0]
@@ -463,7 +430,7 @@ def plot_custom_conf_matrix(ax, TP, FP, FN, title=''):
     ax.spines['left'].set_visible(False)
     ax.spines['bottom'].set_visible(False)
 
-    # Posiciones centrales de las celdas
+    # Center positions of the cells
     ax.set_xticks([0.5, 1.5])
     ax.set_yticks([0.5, 1.5])
     
@@ -478,12 +445,14 @@ def plot_custom_conf_matrix(ax, TP, FP, FN, title=''):
     # Desactivate extra ticks
     ax.tick_params(which='minor', bottom=False, top=False, left=False, right=False)
     ax.text(0.6, 2.1,f'{title}', fontsize=40)
+    
     # Statistical results
     #ax.text(0.3, -0.35, f'P = {precision:.2f}', ha='center', fontsize=30)
     #ax.text(1.0, -0.35, f'R = {recall:.2f}', ha='center', fontsize=30)
     #ax.text(1.7, -0.35, f'F1 = {f1:.2f}', ha='center', fontsize=30)
 
-# %% Plots confusion matrix
+# %%% Plots confusion matrix
+
 MR = pd.read_csv("aval_MR_N.csv")
 pred_m_A = pd.read_csv('pred_m_A.csv')
 metricas_mA = verificar_prediccion(pred_m_A, MR)
@@ -500,7 +469,8 @@ TPB = metricas_mB[0]
 NB = len(MRB)
 FNB = NB-TPB
 
-# Define cmap y norm para la barra
+# Define cmap and cmap for the bar
+
 cmap = cm.Blues
 vmax_forzado = max(np.nanmax([[TPA, FNA], [FPA, np.nan]]),
                    np.nanmax([[TPB, FNB], [FPB, np.nan]])) * 1.5
@@ -526,36 +496,69 @@ plt.tight_layout(rect=[0, 0, 0.91, 1])  # leaves space behind
 plt.savefig('confussion_matrix.pdf')
 plt.show()
 
-# %%
-aval_plot(MR, MO, pred_m_A, 48)
-# %% Files to be used in joint plot
+# %% Avalanches and precursors
+# %%% Read files
 MR = pd.read_csv("aval_MR_N.csv")
 MO = pd.read_csv("aval_MOKE_N.csv")
 MRB = pd.read_csv("aval_MR_B_N.csv")
 MOB = pd.read_csv("aval_MOKE_B_N.csv")
 pred_m_A = pd.read_csv('pred_m_A.csv')
 pred_m_B = pd.read_csv('pred_m_B.csv')
-# %% Joint plot of predictors
+# %%% Plot function
 # Manual adjustment of axis limits is required to avoid clutter
 # Adjust limits based on the files
 
 def aval_plot_conjunto(avMR, avMO, avP, i, avMRB, avMOB, avPB, j):
+    '''
+    
+    Parameters
+    ----------
+    avMR : TYPE
+        MR Dataset A Avalanches dataframe.
+    avMO : TYPE
+        MOKE Dataset A Avalanches dataframe.
+    avP : TYPE
+        Dataset A Precursors dataframe.
+    i : TYPE
+        Dataset A file index.
+    avMRB : TYPE
+        MR Dataset B Avalanches dataframe..
+    avMOB : TYPE
+        MOKE Dataset B Avalanches dataframe..
+    avPB : TYPE
+        Dataset B Precursors dataframe..
+    j : TYPE
+        Dataset B file index.
+
+    Returns
+    -------
+    None.
+    
+    Plot of the left: Dataset A - File with index i
+    Plot of the right: Dataset B - File with index j
+
+    The MR and MOKE signals are displayed, with avalanches and precursors marked in both plots.    
+    Joint legend.
+    
+    '''
     # --- Data left subplot ---
-    url_i = f'Datos/hysteresis_deg_{i}.dat' 
+    url_i = f'Data_A/hysteresis_deg_{i}.dat' 
     columnas = ['Corriente', 'MOKE', 'MR']
     df_i = pd.read_csv(url_i, delim_whitespace=True, header=None, names=columnas)
     df_i['t'] = range(len(df_i))   
+    df_i = df_i[df_i['Corriente']<=-0.026]
     df_i['MOKE'] = (df_i['MOKE'] - df_i['MOKE'].min()) / (df_i['MOKE'].max() - df_i['MOKE'].min())     
     avMR = avMR[avMR['Archivo'] == i]
     avMO = avMO[avMO['Archivo'] == i]
     avP = avP[avP['Archivo'] == i]
 
     # --- Data right subplot---
-    url_j = f'Datos3/hysteresis_deg_{j}.dat' 
+    url_j = f'Data_B/hysteresis_deg_{j}.dat' 
     columnas = ['Corriente', 'MOKE','Hall', 'MR']
     df_j = pd.read_csv(url_j, delim_whitespace=True, header=None, names=columnas)
-    df_j['MOKE'] = (df_j['MOKE'] - df_j['MOKE'].min()) / (df_j['MOKE'].max() - df_j['MOKE'].min())
-    df_j['t'] = range(len(df_j))        
+    df_j['t'] = range(len(df_j)) 
+    df_j =df_j[df_j['Corriente']>=0.036290] 
+    df_j['MOKE'] = (df_j['MOKE'] - df_j['MOKE'].min()) / (df_j['MOKE'].max() - df_j['MOKE'].min())       
     avMRB = avMRB[avMRB['Archivo'] == j]
     avMOB = avMOB[avMOB['Archivo'] == j]
     avPB = avPB[avPB['Archivo'] == j]
@@ -567,10 +570,10 @@ def aval_plot_conjunto(avMR, avMO, avP, i, avMRB, avMOB, avPB, j):
     ax1_twin = ax1.twinx()
     p1, = ax1.plot(df_i['Corriente'], df_i['MOKE'], label='MOKE', color=palette[0], marker='o', markersize=2)
     p2, = ax1_twin.plot(df_i['Corriente'], df_i['MR'], label='MR', color=palette[3], marker='o', markersize=2)
-    p3, = ax1_twin.plot(df_i['Corriente'][avMR['ti']], df_i['MR'][avMR['ti']], label='Avalanches',markeredgewidth=2, color=palette[2], marker='s', markersize=14, linestyle='None', markerfacecolor='none')
-    p4, = ax1.plot(df_i['Corriente'][avMO['ti']], df_i['MOKE'][avMO['ti']], markeredgewidth=2, color=palette[2], marker='s', markerfacecolor='none', markersize=14, linestyle='None')
-    p5, = ax1_twin.plot(df_i['Corriente'][avP['tf']], avP['MR'], label='Precursors', color=palette[4],markeredgewidth=2, marker='^', markerfacecolor='none', markersize=14, linestyle='None')
-    #ax1.set_ylim(-4, 47)
+    p3, = ax1_twin.plot(df_i['Corriente'][avMR['ti']], df_i['MR'][avMR['ti']], label='Avalanches',markeredgewidth=1.5, color=palette[2], marker='s', markersize=12, linestyle='None', markerfacecolor='none')
+    p4, = ax1.plot(df_i['Corriente'][avMO['ti']], df_i['MOKE'][avMO['ti']], markeredgewidth=1.5, color=palette[2], marker='s', markerfacecolor='none', markersize=12, linestyle='None')
+    p5, = ax1_twin.plot(df_i['Corriente'][avP['tf']], avP['MR'], label='Precursors', color=palette[4],markeredgewidth=1.5, marker='^', markerfacecolor='none', markersize=12, linestyle='None')
+    ax1_twin.set_ylim(-24, 50)
     ax1.set_xlim(-0.0322,-0.0259)
     ax1.invert_xaxis()
         
@@ -578,9 +581,9 @@ def aval_plot_conjunto(avMR, avMO, avP, i, avMRB, avMOB, avPB, j):
     ax2_twin = ax2.twinx()
     ax2.plot(df_j['Corriente'], df_j['MR'], color=palette[3], marker='o', markersize=2)
     ax2_twin.plot(df_j['Corriente'], df_j['MOKE'], color=palette[0], marker='o', markersize=2)
-    ax2.plot(df_j['Corriente'][avMRB['ti']], df_j['MR'][avMRB['ti']], color=palette[2], marker='s',markeredgewidth=2, markersize=14, linestyle='None', markerfacecolor='none')
-    ax2_twin.plot(df_j['Corriente'][avMOB['ti']], df_j['MOKE'][avMOB['ti']], color=palette[2], markeredgewidth=2,marker='s', markerfacecolor='none', markersize=14, linestyle='None')
-    ax2.plot(df_j['Corriente'][avPB['tf']], avPB['MR'], color=palette[4], marker='^', markeredgewidth=2,markerfacecolor='none', markersize=14, linestyle='None')
+    ax2.plot(df_j['Corriente'][avMRB['ti']], df_j['MR'][avMRB['ti']], color=palette[2], marker='s',markeredgewidth=1.5, markersize=12, linestyle='None', markerfacecolor='none')
+    ax2_twin.plot(df_j['Corriente'][avMOB['ti']], df_j['MOKE'][avMOB['ti']], color=palette[2], markeredgewidth=1.5,marker='s', markerfacecolor='none', markersize=12, linestyle='None')
+    ax2.plot(df_j['Corriente'][avPB['tf']], avPB['MR'], color=palette[4], marker='^', markeredgewidth=1.5,markerfacecolor='none', markersize=12, linestyle='None')
 
     for ax in [ax1, ax2]:
         ax.set_xlabel('$V (V)$', fontsize=35, labelpad=10)
@@ -590,13 +593,13 @@ def aval_plot_conjunto(avMR, avMO, avP, i, avMRB, avMOB, avPB, j):
             ax.set_title('Dataset A', fontsize=40)
         else:
             ax.set_title('Dataset B', fontsize=40)
-    ax1.set_ylabel('MOKE', color=palette[0], fontsize=35, labelpad=10)
-    ax1_twin.set_ylabel('MR', color=palette[3], fontsize=35, labelpad=-10)
+    ax1.set_ylabel('MOKE', color=palette[0], fontsize=35, labelpad=15)
+    ax1_twin.set_ylabel('MR ($\mu$V)', color=palette[3], fontsize=35, labelpad=-5)
     ax2.set_ylabel('', fontsize=35)
     ax2.set_xlim(0.0405,0.051)
     ax2_twin.invert_yaxis()
-    #ax2_twin.set_ylim(-30, 185)
-    ax2_twin.set_ylabel('MOKE', color=palette[0], fontsize=35, labelpad=10)
+    ax2.set_ylim(-74,0)
+    ax2_twin.set_ylabel('MOKE', color=palette[0], fontsize=35, labelpad=15)
 
     ax1.tick_params(axis='y', labelsize=30)
     ax1_twin.tick_params(axis='y', labelsize=30)
@@ -615,5 +618,212 @@ def aval_plot_conjunto(avMR, avMO, avP, i, avMRB, avMOB, avPB, j):
     plt.tight_layout(rect=[0, 0.1, 1, 1])
     plt.savefig(f'predictores_doble_{i}_{j}.pdf')
     plt.show()
-# %%
-aval_plot_conjunto(MR, MO, pred_m_A, 44, MRB, MOB, pred_m_B, 142)
+# %%% Plot
+aval_plot_conjunto(MR, MO, pred_m_A, 46, MRB, MOB, pred_m_B, 142)
+
+# %% Null method
+# %%% Simulations function
+
+from scipy.stats import gaussian_kde
+import random 
+from collections import Counter
+
+def metodo_nulo(k, media, sd, df_aval, rmin=39, rmax=1040, ventana=4, N=201, exp='A'):
+    '''
+
+    Parameters
+    ----------
+    k : TYPE
+        Number of iterations.
+    media : TYPE
+        Average of precursors per file.
+    sd : TYPE
+        Standard deviation of precursors per file.
+    df_aval : TYPE
+        MR Avalanches Dataframe.
+    rmin : TYPE, optional
+        Lower threshold for prediction. The default is 39.
+    rmax : TYPE, optional
+        Upper threshold for detction. The default is 1040. (1540 for Dataset B)
+    ventana : TYPE, optional
+        Window to detect avalanches after each prediction.. The default is 4.
+    N : TYPE, optional
+        Number of files in the Dataset: 201 for A and 182 for B. The default is 201.
+    exp : TYPE, optional
+        Dataset: 'A' or 'B'. The default is 'A'.
+
+    Returns
+    -------
+    A_lista : TYPE
+        List with number of avalanches detected in each iteration.
+    FP_lista : TYPE
+        List with number of false positives detected in each iteration..
+    TE_lista : TYPE
+        List with precision in each iteration..
+
+    '''
+    A_lista = []
+    FP_lista = []
+    TE_lista = []
+
+    rango_min = rmin
+    rango_max = rmax - ventana
+
+    for rep in range(k):  # rep = number of iteration
+        # Generates number of precursors per file
+        
+        num_pred = np.random.normal(loc=media, scale=sd, size=N)
+        num_pred = np.round(num_pred).astype(int)
+        num_pred = np.clip(num_pred, 0, None)
+
+        # Random times in each file
+        resultado = [
+            random.sample(range(rango_min, rango_max + 1), n) if n > 0 else []
+            for n in num_pred
+        ]
+
+        # Adjust number of files
+        if exp == 'A':
+            archivos = [j if j < 165 else j + 1 for j in range(N)]
+        else:
+            archivos = list(range(N))
+
+        # Build the Dataframe
+        datos = [
+            (t, archivos[j]) for j, lista_tiempos in enumerate(resultado) for t in lista_tiempos
+        ]
+        df_k = pd.DataFrame(datos, columns=["tf", "Archivo"])
+
+        # call the verification function
+        A, FP, TE, l = verificar_prediccion(df_k, df_aval)
+        A_lista.append(A)
+        FP_lista.append(FP)
+        TE_lista.append(TE)
+
+        if rep % 50 == 0:
+            print(f"Repetición {rep} completada.")
+
+    return A_lista, FP_lista, TE_lista
+
+# %%% Create files
+
+#aval_MR = pd.read_csv('aval_MR_N.csv') # for A
+#df_pred = pd.read_csv('pred_m_A.csv') # for A
+aval_MR = pd.read_csv('aval_MR_B_N.csv') # for B
+df_pred = pd.read_csv('pred_m_B.csv') # for B
+
+df_pred_Archivo = df_pred['Archivo'].to_list()
+contador = Counter(df_pred_Archivo)
+num_aval = list(contador.values())
+media =  np.mean(num_aval)
+sd = np.std(num_aval, ddof=0) # ddof=0 es desviación estándar poblacional
+
+#A_nulo, FP_nulo, TE_nulo = metodo_nulo (1000, media, sd, aval_MR) # for A
+A_nulo, FP_nulo, TE_nulo = metodo_nulo (1000, media, sd, aval_MR, rmax=1540, N=182, exp='B') # for B
+l= len(aval_MR)
+A_nulo = A_nulo / l
+print(np.mean(np.array(TE_nulo)))
+# %%% Save/load files
+
+#np.save("FP_nulo_MR_N.npy", FP_nulo)
+#np.save("A_nulo_MR_N.npy", A_nulo)
+#np.save("TE_nulo_MR_N.npy", TE_nulo)
+
+#np.save("FP_nulo_MR_N_B.npy", FP_nulo)
+#np.save("A_nulo_MR_N_B.npy", A_nulo)
+#np.save("TE_nulo_MR_N_B.npy", TE_nulo)
+
+FP_nulo = np.load("FP_nulo_MR_N.npy")
+A_nulo = np.load("A_nulo_MR_N.npy")
+TE_nulo = np.load("TE_nulo_MR_N.npy")
+
+#FP_nulo = np.load("FP_nulo_MR_N_B.npy")
+#A_nulo = np.load("A_nulo_MR_N_B.npy")
+#TE_nulo = np.load("TE_nulo_MR_N_B.npy")
+# %%% Precision plot
+
+# Histogram with smooth pdf
+# Pdf estimation with KDE
+
+kde = gaussian_kde(TE_nulo)
+x_vals = np.linspace(min(TE_nulo), max(TE_nulo), 1000)  # Range
+y_vals = kde(x_vals)
+mean_val = np.mean(TE_nulo)
+
+# Quantiles
+q_low, q_high = np.percentile(TE_nulo, [2.5, 97.5])
+
+# Histogram
+
+plt.figure(figsize=(8, 6), dpi=300)
+n, bins, patches = plt.hist(TE_nulo, bins=30, density=True, alpha=0.6, color=palette[0], label='$f(x)$')
+
+# Adjust the transparency of each bar
+for patch, bin_edge in zip(patches, bins[:-1]):  
+    if q_low <= bin_edge <= q_high:
+        patch.set_alpha(0.35)  # Darker for 95% confidence interval
+    else:
+        patch.set_alpha(0.2)
+
+# KDE plot
+plt.plot(x_vals, y_vals, color=palette[0], label="KDE", linewidth=2)
+
+# Average line
+plt.axvline(x=mean_val, color=palette[1], linestyle='-', linewidth=1.5, label='Mean')
+#plt.axvline(x=TE1, color=palette[1], linestyle='--', label=f'SR = {TE1:.2f}')
+
+# Labels and axis
+plt.xlabel("Precision", fontsize=30, labelpad=10)
+plt.ylabel("$f(x)$", fontsize=30, labelpad=15)
+plt.tick_params(axis='both',which='major',length=10,labelsize =25)
+plt.tick_params(axis='both',which='minor',length=4,labelsize=25)
+
+plt.legend(loc='upper right',frameon=True,facecolor='white',
+edgecolor='lightgrey',framealpha=0.9,fancybox=True,shadow=False,  fontsize=20)
+plt.savefig('Nulo_P_Hist_A.pdf')
+#plt.savefig('Nulo_P_Hist_B.pdf')
+plt.show()
+
+# %%% Recall plot
+
+# Pdf estimation with KDE
+
+kde = gaussian_kde(A_nulo)
+x_vals = np.linspace(min(A_nulo), max(A_nulo), 1000)  # Range
+y_vals = kde(x_vals)
+mean_val = np.mean(A_nulo)
+
+# Quantiles
+q_low, q_high = np.percentile(A_nulo, [2.5, 97.5])
+
+# Histogram
+
+plt.figure(figsize=(8, 6), dpi=300)
+n, bins, patches = plt.hist(A_nulo, bins=30, density=True, alpha=0.6, color=palette[0], label='$f(x)$')
+
+# Adjust the transparency of each bar
+for patch, bin_edge in zip(patches, bins[:-1]):  
+    if q_low <= bin_edge <= q_high:
+        patch.set_alpha(0.35)  # Darker for 95% confidence interval
+    else:
+        patch.set_alpha(0.2)
+
+# KDE plot
+plt.plot(x_vals, y_vals, color=palette[0], label="KDE", linewidth=2)
+
+# Average line
+plt.axvline(x=mean_val, color=palette[1], linestyle='-', linewidth=1.5, label='Mean')
+#plt.axvline(x=AV1, color=palette[1], linestyle='--', label=f'Avalanches = {AV1:.0f}')
+
+# Labels and axis
+plt.xlabel("Recall", fontsize=30, labelpad=10)
+plt.ylabel("$f(x)$", fontsize=30, labelpad=15)
+plt.tick_params(axis='both',which='major',length=10,labelsize =25)
+plt.tick_params(axis='both',which='minor',length=4,labelsize=25)
+
+#plt.title("Probability density function - Avalanches")
+plt.legend(loc='upper right',frameon=True,facecolor='white',
+edgecolor='lightgrey',framealpha=0.9,fancybox=True,shadow=False,  fontsize=20)
+plt.savefig('Nulo_AV_Hist_A.pdf')
+#plt.savefig('Nulo_AV_Hist_B.pdf')
+plt.show()

@@ -5,7 +5,8 @@ Created on Wed Apr  2 11:40:24 2025
 @author: iorti
 """
 
-# %% Librerías
+# %% Libraries
+
 import pandas as pd
 import numpy as np
 import seaborn as sns
@@ -19,18 +20,25 @@ import scienceplots
 plt.style.use('science')
 palette = sns.color_palette("muted")
 
-# %%
-CATP = pd.read_csv('CATP.csv')
+# %% Data preparation
+# %%% Read files
+
+#CATP = pd.read_csv('CATP.csv')
 #CATP = pd.read_csv('CATP_B.csv')
 
-# %%
+CATP = pd.read_csv('CATP_N.csv')
+CATP = pd.read_csv('CATP_B_N.csv')
+
+# %%% Separate catalogue 
+
 CATP0 = CATP[CATP['I']==0]
 CATP1 = CATP[CATP['I']==1]
 CATP = CATP.sort_values(by=['Archivo', 'ti']).reset_index(drop=True)
 CATP0 = CATP0.sort_values(by=['Archivo', 'ti']).reset_index(drop=True)
 CATP1 = CATP1.sort_values(by=['Archivo', 'ti']).reset_index(drop=True)
 
-# %% Waiting times thresholds
+# %%% Inter-event times thresholds
+
 a = 0.1 # mínimo 
 b = 50   # máximo
 
@@ -40,13 +48,19 @@ log_intervals = np.logspace(np.log10(a), np.log10(b), num=50)
 # View the generated values
 print(log_intervals)
 
-# %% Waiting times for CATP0
+
+# %% Create IET Dataframes
+# %%% CATP0
+
+# This is the only used afterwards.
+# Here, instead of inter-event times, we compute inter-event voltages, which provide a more accurate measure.
+# Similar modifications should be applied to the other two cases, but their results are already poor.
 
 waiting_times_dict = {}
-url_i = 'Datos/hysteresis_deg_1.dat' 
-#url_i='Datos3/hysteresis_deg_1.dat'
-columnas = ['Corriente', 'MOKE','MR']
-#columnas=['Corriente','MOKE','Hall','MR']
+#url_i = 'Data_A/hysteresis_deg_1.dat' 
+url_i='Data_B/hysteresis_deg_1.dat'
+#columnas = ['Corriente', 'MOKE','MR']
+columnas=['Corriente','MOKE','Hall','MR']
 df_i = pd.read_csv(url_i, delim_whitespace=True, header=None, names=columnas)
 
 # Iterate over the thresholds in the log_intervals
@@ -76,13 +90,12 @@ for key in waiting_times_dict:
 # Create a DataFrame with the results
 waiting_times_df0 = pd.DataFrame(waiting_times_dict)
 waiting_times_df0.columns = [f'DIFF{i+1}' for i in range(waiting_times_df0.shape[1])]
-# Convert to integers
+
 waiting_times_df0 = waiting_times_df0.fillna(0)
-#waiting_times_df0 = waiting_times_df0.astype(int)
 # Print the dataframe
 print(waiting_times_df0)
 
-# %% Waiting times for CATP1
+# %%% CATP1
 
 waiting_times_dict = {}
 
@@ -117,7 +130,7 @@ waiting_times_df1 = waiting_times_df1.astype(int)
 # Print the dataframe
 print(waiting_times_df1)
 
-# %% Waiting times for CATP
+# %%% CATP
 
 waiting_times_dict = {}
 
@@ -152,15 +165,17 @@ waiting_times_df = waiting_times_df.astype(int)
 # Print the dataframe
 print(waiting_times_df)
 
-# %% Save files
+# %%% Save files
+
 #waiting_times_df.to_csv("WT.csv", index = False)
-#waiting_times_df0.to_csv("WT0V.csv", index = False)
+#waiting_times_df0.to_csv("WT0V_N.csv", index = False)
 #waiting_times_df1.to_csv("WT1.csv", index = False)
 
 #waiting_times_df.to_csv("WT_B.csv", index = False)
-#waiting_times_df0.to_csv("WT0V_B.csv", index = False)
+waiting_times_df0.to_csv("WT0V_B_N.csv", index = False)
 #waiting_times_df1.to_csv("WT1_B.csv", index = False)
-# %% Load files
+# %%% Load files
+
 WT = pd.read_csv('WT.csv')
 WT0 = pd.read_csv('WT0V.csv')
 WT1 = pd.read_csv('WT1.csv')
@@ -169,10 +184,34 @@ WT1 = pd.read_csv('WT1.csv')
 #WT0 = pd.read_csv('WT0V_B.csv')
 #WT1 = pd.read_csv('WT1_B.csv')
 
-# %% Pdf waiting times
+# %% Pdf Inter-event times
+# %%% Function
+
 from scipy.special import factorial
 
 def plot_dist_WT(df, i, num_bins=10, num_bootstrap=10000, q=0.16):
+    '''
+    
+    Parameters
+    ----------
+    df : TYPE
+        Dataframe of inter-event times.
+    i : TYPE
+        Index of inter-event times threshold.
+    num_bins : TYPE, optional
+        Number of bins. The default is 10.
+    num_bootstrap : TYPE, optional
+        Number of bootstrap iterations. The default is 10000.
+    q : TYPE, optional
+        Confidence interval for boostrapping. The default is 0.16 (standard deviation).
+
+    Returns
+    -------
+    None.
+    
+    Plots the Pdf in log-log scale with bootstrapping.
+
+    '''
     threshold = log_intervals[i-1]
     col_name = f'DIFF{i}'
     data = df[col_name]
@@ -221,11 +260,41 @@ def plot_dist_WT(df, i, num_bins=10, num_bootstrap=10000, q=0.16):
     #plt.savefig(f'dist_WT_B_{threshold:.2f}.pdf')
     plt.show()
 
-# %% 
+# %%% Plot
+
 plot_dist_WT(WT0, 15)
-# %% First version of reescalated pdf
-# El objetivo de este gráfico es comparar la distribución de WT con un Poisson
+
+# %% Poisson process
+# %%% Function: first version
+
 def plot_dist_escalado_WT(df, i, k, num_bins=10, num_bootstrap=10000, q=0.16):
+    '''
+    
+    Parameters
+    ----------
+    df : TYPE
+        Inter-event times dataframe.
+    i : TYPE
+        index of inter-event threshold.
+    k : TYPE
+        Index for colors in palette.
+    num_bins : TYPE, optional
+        Number of bins. The default is 10.
+    num_bootstrap : TYPE, optional
+        Number of bootstrap iterations. The default is 10000.
+    q : TYPE, optional
+        Confidence interval for boostrapping. The default is 0.16.
+
+    Returns
+    -------
+    None.
+    
+    Creates a reescalated Pdf plot to asses whether the process is Poisson or not.
+    An exponential decay is plotted for comparison.
+
+    In this first version uncertainties are displayed with lines.
+
+    '''
     threshold = log_intervals[i-1]
     col_name = f'DIFF{i}'
     data = df[col_name]
@@ -237,15 +306,15 @@ def plot_dist_escalado_WT(df, i, k, num_bins=10, num_bootstrap=10000, q=0.16):
     data = data.sort_values()
     y = np.exp(-data/lambda_e)
 
-    # Generar los bins usando logspace
+    # Logarithmic bins
     bin_edges = np.logspace(np.log10(min_val), np.log10(max_val), num_bins)
-    # Calcular el histograma normalizado (función de densidad empírica)
     hist, bin_edges = np.histogram(data, bins=bin_edges, density=True)
 
-    # Calcular los centros de los bins
+    # Bins centers
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
     bin_centers = bin_centers/lambda_e
     hist = hist * lambda_e
+    
     # Bootstrap
     densb = np.zeros((num_bootstrap, len(bin_centers)))
     for b in range(num_bootstrap):
@@ -255,7 +324,7 @@ def plot_dist_escalado_WT(df, i, k, num_bins=10, num_bootstrap=10000, q=0.16):
         z_b = np.histogram(xi_b, bins=bin_edges, density=True)  # Histograma bootstrap
         densb[b, :] = z_b[0]  # Guardar la densidad
 
-    # Intervalos de confianza
+    # Confidence intervals
     ci_lower = np.percentile(densb, 100 * q, axis=0)
     ci_upper = np.percentile(densb, 100 * (1 - q), axis=0)
     plt.errorbar(bin_centers, hist, yerr=[hist - lambda_e*ci_lower, lambda_e*ci_upper - hist], 
@@ -263,10 +332,37 @@ def plot_dist_escalado_WT(df, i, k, num_bins=10, num_bootstrap=10000, q=0.16):
                  markersize=5, capsize=3, linewidth=2)
     plt.plot(data/lambda_e, y, linestyle='--', color=palette[(k+8) % len(palette)])
     
-# %% Segunda versión: cajas representan los bins en vez de plot puntual
-# El objetivo de este gráfico es comparar la distribución de WT con un Poisson
+# %%% Function: second version
+# Actual version
 
 def plot_dist_escalado_WT(df, i, k, num_bins=10, num_bootstrap=10000, q=0.16):
+    '''
+    
+    Parameters
+    ----------
+    df : TYPE
+        Inter-event times dataframe.
+    i : TYPE
+        index of inter-event threshold.
+    k : TYPE
+        Index for colors in palette.
+    num_bins : TYPE, optional
+        Number of bins. The default is 10.
+    num_bootstrap : TYPE, optional
+        Number of bootstrap iterations. The default is 10000.
+    q : TYPE, optional
+        Confidence interval for boostrapping. The default is 0.16.
+
+    Returns
+    -------
+    None.
+    
+    Creates a reescalated Pdf plot to asses whether the process is Poisson or not.
+    An exponential decay is plotted for comparison.
+    
+    In this second version transparency boxes are used to display uncertainties in the bins.
+
+    '''
     threshold = log_intervals[i-1]
     col_name = f'DIFF{i}'
     data = df[col_name]
@@ -278,7 +374,7 @@ def plot_dist_escalado_WT(df, i, k, num_bins=10, num_bootstrap=10000, q=0.16):
     data = data.sort_values()
     y = np.exp(-data / lambda_e)
 
-    # Bins logarítmicos
+    # Logarithmic bins
     bin_edges = np.logspace(np.log10(min_val), np.log10(max_val), num_bins)
     hist, _ = np.histogram(data, bins=bin_edges, density=True)
 
@@ -295,22 +391,23 @@ def plot_dist_escalado_WT(df, i, k, num_bins=10, num_bootstrap=10000, q=0.16):
         z_b = np.histogram(xi_b, bins=bin_edges, density=True)
         densb[b, :] = z_b[0]
 
-    # Intervalos de confianza escalados
+    # Escalated confidence intervals
     ci_lower = np.percentile(densb, 100 * q, axis=0) * lambda_e
     ci_upper = np.percentile(densb, 100 * (1 - q), axis=0) * lambda_e
 
     color = palette[(k + 8) % len(palette)]
 
-    # Dibujar los rectángulos como bins con incertidumbre
+    # Transparency boxes
     for left, right, yc, ylow, yhigh in zip(bin_edges_scaled[:-1], bin_edges_scaled[1:], hist, ci_lower, ci_upper):
         if yc > 0:
             plt.fill_between([left, right], [ylow, ylow], [yhigh, yhigh], color=color, alpha=0.4, edgecolor=None)
             plt.hlines(yc, left, right, color=color, lw=2)
     plt.plot(bin_centers, hist, color=color, linewidth=2)
-    # Curva exponencial
+    
+    # Exponential curve
     plt.plot(data / lambda_e, y, linestyle='-', color=color, label=f'$S_t$ = {threshold:.2f}')
 
-# %% Plot de una selección de Pdf reescaladas de waiting time thresholds
+# %%% Plot
 
 plt.figure(figsize=(12,8))
 k = 1
@@ -318,10 +415,10 @@ for i in range(1,30,3):
     k += 1
     plot_dist_escalado_WT(WT0, i, k)
 
-plt.xlabel(r'$\frac{t}{\langle \Delta V \rangle}$',fontsize=30)
+plt.xlabel(r'$\frac{\Delta V}{\langle \Delta V \rangle}$',fontsize=30)
 plt.ylabel(r'$\mathbb{P}(\Delta V) \langle \Delta V \rangle$',fontsize=30, labelpad=10)
 #plt.title (f'Empirical Density Function for different thresholds')
-plt.xscale('log') # Escala log-log
+plt.xscale('log') # Log-log scale
 plt.yscale('log')
 plt.xticks(fontsize=25)
 plt.yticks(fontsize=25)
@@ -332,11 +429,12 @@ plt.tight_layout()
 #plt.savefig('dist_WT_comparacion_B2.pdf')
 plt.show()
 
-# %% Gráfico comparativa distribuciones possion conjunto
-# Plot de una selección de Pdf reescaladas de waiting time thresholds
+# %%% Joint plot
+# Combined plot for Datasets A and B.
+# Selection of inter-event thresholds
 
-WT0 = pd.read_csv('WT0V.csv')
-WT0_B = pd.read_csv('WT0V_B.csv')
+WT0 = pd.read_csv('WT0V_N.csv')
+WT0_B = pd.read_csv('WT0V_B_N.csv')
 
 fig, axes = plt.subplots(1, 2, figsize=(22, 10), sharex=True, sharey=True)
 
@@ -345,7 +443,7 @@ archivos = [
     {'WT': WT0,   'title': 'Dataset original'}
 ]
 
-# Para recoger leyendas comunes
+# For joint legend
 all_handles = []
 all_labels = []
 
@@ -373,21 +471,22 @@ for ax, archivo in zip(axes, archivos):
     x_exp = np.logspace(-2, 2, 500)
     y_exp = np.exp(-x_exp)
     ax.plot(x_exp, y_exp, 'k--', linewidth=2)
-    # Capturar leyenda solo del primer eje
+    
     handles, labels = ax.get_legend_handles_labels()
     if not all_labels:
         all_handles = handles
         all_labels = labels
         
-# Leyenda común debajo
+# Legend below
 fig.legend(all_handles, all_labels, loc='lower center', ncol=5, fontsize=30,
            frameon=True, facecolor='white', edgecolor='lightgrey', framealpha=0.9, bbox_to_anchor=(0.534,-0.16))
 
 plt.tight_layout(w_pad=3)
-plt.savefig('dist_WT_conjunto.pdf')
+plt.savefig('dist_WT_conjuntoN.pdf')
 plt.show()
 
-# %% Count  waiting times
+# %% Counting
+
 plt.figure(figsize=(12,8))
 k = 0
 for i in range(1,41, 5):
@@ -415,7 +514,9 @@ plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7, zorder=0)
 #plt.savefig('escalated_WT_sl.pdf')
 plt.show()
 
-# %% CDF WT gráfico individual
+# %% Cummulative distribution
+# %%% Single Plot
+
 plt.figure(figsize=(10,8))
 k = 0
 for i in range(1, 41, 5):
@@ -430,7 +531,7 @@ for i in range(1, 41, 5):
     WTi = WTi.sort_values(by='valor')
     WTi['acum'] = WTi['frecuencia'].cumsum()
     
-    # Normalizar para obtener CDF
+    # Normalize to obtain CDF
     WTi['cdf'] = WTi['acum'] / N
 
     plt.step(WTi['valor'], WTi['cdf'], where='post',
@@ -449,16 +550,18 @@ plt.legend(fontsize=25, frameon=True, facecolor='white',
            edgecolor='lightgrey', framealpha=0.9, fancybox=True, shadow=False)
 #plt.savefig('CDF_WT_sl.pdf')
 plt.show()
-# %% Gráfico conjunto CDF waiting times
-# Cargar los datos
-WT0 = pd.read_csv('WT0V.csv')
-WT0_B = pd.read_csv('WT0V_B.csv')
+# %%% Joint plot
 
-# Crear la figura y los subgráficos
-fig, axes = plt.subplots(1, 2, figsize=(22, 9), sharey=True)  # Dos subgráficos lado a lado
+# Load the data
+WT0 = pd.read_csv('WT0V_N.csv')
+WT0_B = pd.read_csv('WT0V_B_N.csv')
 
-# Para el gráfico de la izquierda
-url_i = 'Datos/hysteresis_deg_1.dat' 
+# Create figure and subplots
+fig, axes = plt.subplots(1, 2, figsize=(22, 9), sharey=True)  # Two subplots side by side
+
+# Left subplot
+
+url_i = 'Data_A/hysteresis_deg_1.dat' 
 columnas = ['Corriente', 'MOKE', 'MR']
 df_i = pd.read_csv(url_i, delim_whitespace=True, header=None, names=columnas)
 k = 0
@@ -475,11 +578,11 @@ for i in range(1, 40, 4):
     WTi = WTi.sort_values(by='valor')
     WTi['acum'] = WTi['frecuencia'].cumsum()
     
-    # Normalizar para obtener CDF
+    # Normalize to obtain CDF
     WTi['cdf'] = WTi['acum'] / N
 
     axes[0].step(WTi['valor'], WTi['cdf'], where='post',
-                 color=palette[k],  # Usamos el color de la paleta
+                 color=palette[k],
                  marker='o', markersize=1.5, linewidth=1.5,
                  label=f'$S_t$ = {threshold:.2f}')
     k += 1
@@ -490,7 +593,9 @@ axes[0].tick_params(axis='both', labelsize=30, which='major', length=12)
 axes[0].tick_params(axis='both', which='minor', length=4)
 axes[0].grid(True, linestyle='--', linewidth=0.5, alpha=0.7, zorder=0)
 axes[0].set_title('Dataset A', fontsize=40)
-# Para el gráfico de la derecha
+
+# Right subplot
+
 k = 0
 for i in range(1, 40, 4):
     threshold = log_intervals[i-1]
@@ -504,11 +609,11 @@ for i in range(1, 40, 4):
     WTi = WTi.sort_values(by='valor')
     WTi['acum'] = WTi['frecuencia'].cumsum()
     
-    # Normalizar para obtener CDF
+    # Normalize to obtain CDF
     WTi['cdf'] = WTi['acum'] / N
 
     axes[1].step(WTi['valor'], WTi['cdf'], where='post',
-                 color=palette[k],  # Usamos el mismo color de la paleta
+                 color=palette[k],
                  marker='o', markersize=1.5, linewidth=1.5)
     k += 1
 
@@ -520,17 +625,19 @@ axes[1].grid(True, linestyle='--', linewidth=0.5, alpha=0.7, zorder=0)
 axes[1].set_title('Dataset B', fontsize=40)
 axes[1].minorticks_on()
 
-# Ajuste del espacio y leyenda
+# Adjust separation between subplots and legend
+
 fig.subplots_adjust(bottom=0.2)
 fig.legend(loc='upper center', bbox_to_anchor=(0.53, 0.02), ncol=5, fontsize=28, frameon=True, facecolor='white',
            edgecolor='lightgrey', framealpha=0.9, fancybox=True, shadow=False)
-
-# Mostrar y guardar el gráfico
 plt.tight_layout()
-plt.savefig('CDF_WT_conjunto.pdf')
+
+# Save and show
+plt.savefig('CDF_WT_conjuntoN.pdf')
 plt.show()
 
-# %% Evolución N
+# %% Evolution of N
+
 N = []
 for i in range(1,41):
     col_name = f'DIFF{i}'
@@ -545,8 +652,10 @@ plt.ylabel('Number of waiting times')
 #plt.savefig('evolucion_N_WT_B.pdf')
 plt.show()
 
-# %% Test de Bi
-CATP = pd.read_csv("CATP_B.csv")
+# %% Bi Test plots
+# %%% Measured data
+
+CATP = pd.read_csv("CATP_B_N.csv")
 #CATP = pd.read_csv("CATP.csv")
 CATP0 = CATP[CATP['I']==0]
 #rango = [i for i in range(0, 202) if i != 165]
@@ -570,7 +679,7 @@ for k in range(0, 30, 3):
         CATP0i = CATP0_sorted[CATP0_sorted['Archivo']==i]
         li = len(CATP0i)
         for j in range(1,li-1):
-            # Calcular el waiting time entre 'tf' de la fila actual y 'ti' de la siguiente fila
+            # Compute inter-event time between 'tf' of the actual row and 'ti' of the next one
             f_waiting_time = CATP0i['ti'].iloc[j + 1] - CATP0i['tf'].iloc[j]
             waiting_time = CATP0i['ti'].iloc[j] - CATP0i['tf'].iloc[j-1]
             inter_event_times.append([waiting_time,f_waiting_time,i])
@@ -614,7 +723,10 @@ plt.tight_layout()
 plt.savefig('bi_test_comparacion_B2.pdf')
 plt.show()
 
-# %% Test de Bi suavizado
+# %%% Processed data
+
+# Artifical noise is added to avoid spikes due to resolution issues
+
 CATP = pd.read_csv("CATP_B.csv")
 #CATP = pd.read_csv("CATP.csv")
 CATP0 = CATP[CATP['I']==0]
@@ -679,25 +791,28 @@ plt.xlabel('$H_n$', fontsize=35)
 plt.xticks(fontsize=35)
 plt.yticks(fontsize=35)
 #plt.ylim(-1.9,1.9)
+
 plt.legend(loc='center left', bbox_to_anchor=(1, 0.5),fontsize=30,frameon=True, facecolor='white', 
            edgecolor='lightgrey', framealpha=0.9, fancybox=True, shadow=False)
 plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7, zorder=0)
 plt.tight_layout()
+
 plt.savefig('bi_test_suave_comparacion_B2.pdf')
 plt.show()
 
-# %% Gráfico Bi Test conjunto
+# %%% Measured data - Joint plot
+
 fig, axes = plt.subplots(1, 2, figsize=(22, 9), sharey=False)
 
-# Definir datasets
+# Define datasets
 datasets = [
     {
-        'filename': 'CATP.csv',
+        'filename': 'CATP_N.csv',
         'rango': range(0, 182),
         'title': 'Original dataset (files 0–181)'
     },
     {
-        'filename': 'CATP_B.csv',
+        'filename': 'CATP_B_N.csv',
         'rango': [i for i in range(0, 202) if i != 165],
         'title': 'Dataset B (excl. file 165)'
     }
@@ -724,18 +839,18 @@ for ax, ds in zip(axes, datasets):
         CATP0_filtrado = CATP0[CATP0['S_MR'] > threshold].copy()
         CATP0_filtrado = CATP0_filtrado.sort_values(by=['Archivo', 'ti'])
         
-        # Escoger ruta y columnas dependiendo del dataset
-        if ds['filename'] == 'CATP.csv':
-            url_i = f'Datos/hysteresis_deg_1.dat'
+        # Choose file and columns depending on Dataset
+        if ds['filename'] == 'CATP_N.csv':
+            url_i = f'Data_A/hysteresis_deg_1.dat'
             columnas = ['Corriente', 'MOKE', 'MR']
         else:
-            url_i = f'Datos3/hysteresis_deg_1.dat'
+            url_i = f'Data_B/hysteresis_deg_1.dat'
             columnas = ['Corriente', 'MOKE', 'Hall', 'MR']
 
         try:
             df_i = pd.read_csv(url_i, delim_whitespace=True, header=None, names=columnas)
         except FileNotFoundError:
-            continue  # Saltarse si no existe el archivo
+            continue  # Skip if file doesn't exist
 
         inter_event_times = []
         for i in rango:
@@ -776,26 +891,31 @@ for ax, ds in zip(axes, datasets):
     ax.tick_params(axis='both', labelsize=35)
     ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7, zorder=0)
 
-# Leyenda común
+# Adjust separation between subplots, and legend
+
 handles, labels = axes[0].get_legend_handles_labels()
 fig.legend(handles, labels, loc='lower center', ncol=6, fontsize=35,columnspacing=0.5,
            frameon=True, facecolor='white', edgecolor='lightgrey', framealpha=0.9, bbox_to_anchor=(0.525, -0.2))
-
 plt.tight_layout(w_pad=2)
-plt.savefig('bi_test_conjunto.pdf')
+
+# Save and show
+plt.savefig('bi_test_conjuntoN.pdf')
 plt.show()
 
-# %% Gráfico Bi Test suavizado conjunto
+# %%% Processed data - Joint plot
+
+# Artifical noise is added to avoid spikes due to resolution issues
+
 fig, axes = plt.subplots(1, 2, figsize=(22, 9), sharey=False)
 
 datasets = [
     {
-        'filename': 'CATP.csv',
+        'filename': 'CATP_N.csv',
         'rango': range(0, 182),
         'title': 'Original dataset (files 0–181)'
     },
     {
-        'filename': 'CATP_B.csv',
+        'filename': 'CATP_B_N.csv',
         'rango': [i for i in range(0, 202) if i != 165],
         'title': 'Dataset B (excl. file 165)'
     }
@@ -816,18 +936,19 @@ for ax, ds in zip(axes, datasets):
     else:
         ax.set_title('Dataset B', fontsize=40)
     
-    # Escoger ruta y columnas dependiendo del dataset
-    if ds['filename'] == 'CATP.csv':
-        url_i = f'Datos/hysteresis_deg_30.dat'
+    # Choose file and columns depending on Dataset
+    
+    if ds['filename'] == 'CATP_N.csv':
+        url_i = f'Data_A/hysteresis_deg_30.dat'
         columnas = ['Corriente', 'MOKE', 'MR']
     else:
-        url_i = f'Datos3/hysteresis_deg_30.dat'
+        url_i = f'Data_B/hysteresis_deg_30.dat'
         columnas = ['Corriente', 'MOKE', 'Hall', 'MR']
 
     try:
         df_i = pd.read_csv(url_i, delim_whitespace=True, header=None, names=columnas)
     except FileNotFoundError:
-        continue  # Saltarse si no existe el archivo
+        continue  # Skip if file doesn't exist
 
     l = 1
     for k in range(0, 30, 3):
@@ -881,11 +1002,13 @@ for ax, ds in zip(axes, datasets):
     ax.tick_params(axis='both', labelsize=35)
     ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7, zorder=0)
 
-# Leyenda común
+# Adjust separation between subplots, and legend
+
 handles, labels = axes[0].get_legend_handles_labels()
 fig.legend(handles, labels, loc='lower center', ncol=6, fontsize=35,columnspacing=0.5,
            frameon=True, facecolor='white', edgecolor='lightgrey', framealpha=0.9, bbox_to_anchor=(0.525, -0.2))
+plt.tight_layout(w_pad=2)
 
-plt.tight_layout(w_pad=2)  # deja espacio abajo para la leyenda
-plt.savefig('bi_test_suave_conjunto.pdf')
+# Save and show
+plt.savefig('bi_test_suave_conjuntoN.pdf')
 plt.show()

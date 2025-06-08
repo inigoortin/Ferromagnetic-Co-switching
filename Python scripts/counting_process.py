@@ -19,7 +19,7 @@ CATP = pd.read_csv("CATP_B_N.csv")
 #CATP = pd.read_csv("CATP.csv")
 
 
-# %% Counting Process
+# %% Dataframes
 
 CATP0 = CATP[CATP['I']==0]
 CATP1 = CATP[CATP['I']==1]
@@ -53,20 +53,25 @@ CATP_grouped = CATP.groupby('ti', as_index=False).agg({
 
 CATP_grouped['count'] = CATP.groupby('ti').size().values
 
-# %% Counting MR and MO (CATP0)
+
+# %% Counting plots
+# %%% MR and MO (CATP0)
+
 cols = ['S_MR', 'count', 'S_MO', 'Ip','P', 'T']
 labels = ['Size of MR', 'Count of Events', 'Size of MO', 'Precursor intensity','precursor', 'T (MR)']
 
 # Create figure
 plt.figure(figsize=(12, 8))
 
-# Graficamos la CDF para cada columna en función de 'ti'
+# Plot CDF for every column in the dataframe
+
 for i, (col, label) in enumerate(zip(cols, labels)):
     sorted_df = CATP0_grouped.sort_values(by='ti')  # Ordenamos por 'ti'
     cumulative = np.cumsum(sorted_df[col]) / np.sum(sorted_df[col])  # Normalizamos
     plt.plot(sorted_df['ti'], cumulative, label=label,linewidth=1.5, color=palette[i])
 
 # Labels and title
+
 plt.xlabel('Time', fontsize=35)
 plt.ylabel('Cumulative Distribution', fontsize=35, labelpad=15)
 plt.xticks(fontsize=30)
@@ -78,11 +83,14 @@ plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.12), ncol=3, frameon=True
 plt.subplots_adjust(bottom=0.25)
 
 plt.grid(True, linestyle='--', linewidth=0.5, color='lightgrey', zorder=0)
+
+# Save and show
+
 #plt.savefig('counting_process_B2.pdf')
-# Show plot
 plt.show()
 
-# %% Joint plot of CATP0 and CATP0_B
+# %%% CATP0 and CATP0_B
+
 cols = ['S_MR', 'count', 'S_MO', 'Ip','P', 'T']
 labels = ['S(MR)', 'Count A', 'S(MOKE)', 'Intensity P','Count P', 'Period(MR)']
 
@@ -92,27 +100,31 @@ CATP0 = CATP[CATP['I']==0]
 CATP0_grouped = CATP0.groupby('ti', as_index=False).agg({  'S_MR': 'sum',  
     'S_MO': 'sum',  'Ip': 'sum', 'P':'sum', 'T': 'sum',})  
 CATP0_grouped['count'] = CATP0.groupby('ti').size().values
-url_i ='Datos/hysteresis_deg_1.dat' 
+url_i ='Data_A/hysteresis_deg_1.dat' 
 columnas = ['Corriente', 'MOKE', 'MR']
 df_i = pd.read_csv(url_i, delim_whitespace=True, header=None, names=columnas)
+
 for i, (col, label) in enumerate(zip(cols, labels)):
     sorted_df = CATP0_grouped.sort_values(by='ti')
     cumulative = np.cumsum(sorted_df[col]) / np.sum(sorted_df[col])
     axs[0].plot(df_i['Corriente'][sorted_df['ti']], cumulative, label=label, linewidth=1.5, color=palette[i])
+    
 CATP = pd.read_csv("CATP_B_N.csv")
 CATP0 = CATP[CATP['I']==0]
 CATP0_grouped = CATP0.groupby('ti', as_index=False).agg({  'S_MR': 'sum',  
     'S_MO': 'sum',  'Ip': 'sum','P':'sum', 'T': 'sum',})  
 CATP0_grouped['count'] = CATP0.groupby('ti').size().values
-url_i ='Datos3/hysteresis_deg_1.dat' 
+url_i ='Data_B/hysteresis_deg_1.dat' 
 columnas = ['Corriente', 'MOKE','Hall', 'MR']
 df_i = pd.read_csv(url_i, delim_whitespace=True, header=None, names=columnas)
+
 for i, (col, label) in enumerate(zip(cols, labels)):
     sorted_df = CATP0_grouped.sort_values(by='ti')
     cumulative = np.cumsum(sorted_df[col]) / np.sum(sorted_df[col])   
     axs[1].plot(df_i['Corriente'][sorted_df['ti']], cumulative, label=label, linewidth=1.5, color=palette[i])  # Ejemplo: mismo gráfico con otro estilo
 
-# Labels
+# Labels and axis
+
 axs[0].invert_xaxis()
 axs[0].set_xlabel('$V (V)$', fontsize=35, labelpad=10)
 axs[0].set_ylabel('Cumulative Distribution', fontsize=35, labelpad=15)
@@ -135,6 +147,7 @@ for ax in axs:
         ax.set_title('Dataset B', fontsize=40)
 
 # Shared legend for both plots below
+
 fig.legend(labels, loc='upper center', bbox_to_anchor=(0.535, 0.02), ncol=6, fontsize=32, frameon=True,
            facecolor='white', edgecolor='lightgrey', framealpha=0.9, fancybox=True, columnspacing=0.5)
 fig.subplots_adjust(bottom=0.25, wspace=0.05)
@@ -143,7 +156,8 @@ fig.tight_layout()
 plt.savefig('counting_conjunto.pdf')
 plt.show()
 
-# %% Only MO (CATP1)
+# %%% MO (CATP1)
+
 cols = ['S_MR', 'count', 'S_MO', 'Ip', 'T']
 labels = ['Size of MR', 'Count of Events', 'Size of MO', 'Precursor intensity', 'T (MO)']
 
@@ -151,12 +165,14 @@ labels = ['Size of MR', 'Count of Events', 'Size of MO', 'Precursor intensity', 
 plt.figure(figsize=(8, 6))
 
 # We plot the CDF for each column as a function of 'ti'
+
 for i, (col, label) in enumerate(zip(cols, labels)):
     sorted_df = CATP1_grouped.sort_values(by='ti')  # Order by 'ti'
     cumulative = np.cumsum(sorted_df[col]) / np.sum(sorted_df[col])  # Normalize
     plt.plot(sorted_df['ti'], cumulative, label=label, color=palette[i])
 
 # Labels and title
+
 plt.xlabel('ti')
 plt.ylabel('Cumulative Distribution $\\mathbb{F}(t_i)$')
 plt.legend()
@@ -166,7 +182,8 @@ plt.tight_layout()
 # Show plot
 plt.show()
 
-# %% Complete catalogue (CATP0)
+# %%% Complete (CATP0)
+
 cols = ['S_MR', 'count', 'S_MO', 'Ip', 'T']
 labels = ['Size of MR', 'Count of Events', 'Size of MO', 'Precursor intensity', 'T']
 
@@ -174,12 +191,14 @@ labels = ['Size of MR', 'Count of Events', 'Size of MO', 'Precursor intensity', 
 plt.figure(figsize=(8, 6))
 
 # We plot the CDF for each column as a function of 'ti'
+
 for i, (col, label) in enumerate(zip(cols, labels)):
     sorted_df = CATP_grouped.sort_values(by='ti')  # Order by 'ti'
     cumulative = np.cumsum(sorted_df[col]) / np.sum(sorted_df[col])  # Normalize
     plt.plot(sorted_df['ti'], cumulative, label=label, color=palette[i])
 
 # Labels and title
+
 plt.xlabel('ti')
 plt.ylabel('Cumulative Distribution $\\mathbb{F}(t_i)$')
 plt.legend()
@@ -188,9 +207,27 @@ plt.tight_layout()
 #plt.savefig('counting_process_CATP.pdf')
 plt.show()
 
-# %% Rescaling with averages
+# %% Poisson
+# %%% Reescaling function
 
 def plot_reescalado (data):
+    '''
+
+    Parameters
+    ----------
+    data : TYPE
+        Inter-event times list.
+
+    Returns
+    -------
+    None.
+    
+    Creates a plot to compare the empirical distribution with a Poisson process.
+    (exponential decay)
+    
+    Saves the plot as a pdf.
+
+    '''
     t_media = np.mean(data)
     values, counts = np.unique(data, return_counts=True)
     x = values/t_media
@@ -211,7 +248,8 @@ def plot_reescalado (data):
     #plt.savefig(f'reescalate_poisson_all_B.pdf')
     plt.show()
 
-# %% Rescaling CATP0 (Poisson comparison)
+# %%% Rescaling CATP0
+
 waiting_times = []
 CATP0_sorted = CATP0.sort_values(by=['Archivo', 'ti'])
 for i in range(len(CATP0_sorted) - 1):
@@ -222,16 +260,18 @@ for i in range(len(CATP0_sorted) - 1):
         waiting_times.append(waiting_time)
 plot_reescalado(waiting_times)
 
-# %% Waiting times thresholds
+# %% Inter-event times
+# %%% Thresholds
 a = 0.1 # minimum 
 b = 50   # maximum
 
 # Create 50 evenly spaced bins on a logarithmic scale between a and b
 log_intervals = np.logspace(np.log10(a), np.log10(b), num=50)
 
-# %%
+# %%% Acumulated column
 CATP0_grouped['Acum'] = CATP0_grouped['count'].cumsum()
-# %% Waiting times list
+# %%% List
+
 #rango = [i for i in range(0, 202) if i != 165]
 rango = range(0,182)
 L = []
@@ -251,7 +291,10 @@ def insertar_lista(waiting_times, L):
     return nueva_lista
 waiting_times1 = insertar_lista(waiting_times, L)
 S_acum = np.cumsum(CATP0['S_MR'])
-# %% Aftershocks with counting process
+# %%% Aftershocks
+
+# The results are not signifcant
+
 Mag = np.digitize(CATP0['S_MR'], log_intervals) - 1
 Mag[Mag<20] = 0
 
@@ -280,6 +323,7 @@ plt.legend(loc='upper left')
 plt.show()
 
 # %% Bi Test
+# %%% Metrics
 
 inter_event_times = []
 CATP0_sorted = CATP0.sort_values(by=['Archivo', 'ti'])
@@ -318,7 +362,8 @@ Hi_ordered = np.concatenate(([0], Hi_ordered, [1]))
 maxDf = max(Deltaf)
 print(maxDf)
 
-# %% Plot: Delta f(H) - Bi Test
+# %%% Delta f(H) plot
+
 plt.figure(figsize=(8,6))
 plt.axhline(0, color='black', linewidth = 0.5)  # Horizontal line at y=0
 plt.axhline(1.36, color=palette[1], label='$95\%$ confidence')
@@ -332,4 +377,3 @@ plt.legend(loc='lower right',bbox_to_anchor=(1, 0.05))
 plt.tight_layout()
 plt.savefig('bi_test_B.pdf')
 plt.show()
-

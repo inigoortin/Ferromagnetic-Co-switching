@@ -35,7 +35,8 @@ MO = MO.rename(columns={'ti': 't'})
 #MO = pd.read_csv("aval_MOKE_B_N.csv")
 #MO = MO.rename(columns={'ti': 't'})
 #CAT = pd.read_csv("aval_MR_B_N.csv")
-# %%
+# %% Create catalogue
+
 CAT = CAT[['ti', 'tf', 'S', 'Archivo']]
 MO = MO[['t', 'S', 'Archivo']]
 CAT['T'] = CAT['tf']-CAT['ti']+1
@@ -80,8 +81,8 @@ for i in rango:
 MOS = MOS.iloc[1:].reset_index(drop=True)
 MOS['S_MR'] = 0.0
 for i in rango:
-    #url = f'Datos3/hysteresis_deg_{i}.dat' 
-    url = f'Datos/hysteresis_deg_{i}.dat'    
+    #url = f'Data_B/hysteresis_deg_{i}.dat' 
+    url = f'Data_A/hysteresis_deg_{i}.dat'    
     columnas = ['Corriente', 'MOKE', 'MR']
     #columnas = ['Corriente', 'MOKE', 'Hall','MR']
     df = pd.read_csv(url, delim_whitespace=True, header =None, names = columnas)
@@ -99,8 +100,24 @@ CAT = CAT[new_column_order]
 
 CAT = pd.concat([CAT, MOS], ignore_index=True) 
 
-# %% Function to create predictions of avalanches
+# %% Precursors
+
+# %%% Function: create prediction
 def crear_pred_m ():
+    '''
+
+    Returns
+    -------
+    pred_m : TYPE (DataFrame)
+        Precursors dataframe.
+        
+    Creates the prediction of precursors based on the method developed
+    in the model_slopes file.
+    
+    Adds information about intensity of the precursor.
+
+    '''
+    
     #rango = range(0,182) 
     rango = [i for i in range(0, 202) if i != 165] # file 165 is incorrect
     #columnas = ['Corriente', 'MOKE', 'Hall','MR']
@@ -110,8 +127,8 @@ def crear_pred_m ():
         if j % 10 == 0:
             print(j)
         predj = []
-        #url = f'Datos3/hysteresis_deg_{j}.dat'   
-        url = f'Datos/hysteresis_deg_{j}.dat'   
+        #url = f'Data_B/hysteresis_deg_{j}.dat'   
+        url = f'Data_A/hysteresis_deg_{j}.dat'   
         df = pd.read_csv(url, delim_whitespace=True, header =None, names = columnas)
         df['t']=range(len(df))  
         df = df[df['Corriente']<=-0.025141]
@@ -165,13 +182,34 @@ def crear_pred_m ():
     
     pred_m = pred_m.iloc[1:].reset_index(drop=True)
     return pred_m
-# %%
+# %%% Precursors dataframe
+
 df_pred = crear_pred_m()
 df_pred['T'] = df_pred['tf']-df_pred['ti']+1
 
-# %% Verifies the prediction. Returns an updated dataframe.
+# %%% Function: verify prediction
 
 def verificar_prediccion (df, df_aval, ventana=4):
+    '''
+    
+    Parameters
+    ----------
+    df : TYPE
+        Precursors dataframe.
+    df_aval : TYPE
+        MR avalanches dataframe.
+    ventana : TYPE, optional
+        Window for occurrence of avalanches after prediction. The default is 4.
+
+    Returns
+    -------
+    df_aval : TYPE
+        Updated avalanches dataframe.
+      
+    It takes two dataframes: avalanches and predictions.
+    Updates the avalanches dataframe with the information of precursors.
+
+    '''
     l = len(df)
     df_aval['P'] = 0 # Existence of the precursor
     df_aval['Tp'] = 0 # Period of the precursor
@@ -190,9 +228,11 @@ def verificar_prediccion (df, df_aval, ventana=4):
                 df_aval.loc[(df_aval['ti'] == taval) & (df_aval['Archivo'] == file), 'Ip'] += df['Intensidad'][i]
     return df_aval
 
-# %%
+# %% Update Catalogue
+
 CATP = verificar_prediccion(df_pred, CAT)
 
-# %%
+# %% Save file
+
 CATP.to_csv("CATP_N.csv", index = False)
 #CATP.to_csv("CATP_B_N.csv", index = False)

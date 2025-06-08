@@ -28,7 +28,7 @@ palette = sns.color_palette("muted")
 MRB = pd.read_csv("aval_MR_B_N.csv")
 MOB = pd.read_csv("aval_MOKE_B_N.csv")
 
-# %% Slope and magnetization between avalanches
+# %% Exploration
 
 rango = range(0,181) 
 ajuste_MR = pd.DataFrame([[0,0,0,0]], columns=['M', 'm', 'b', 'Archivo'])
@@ -36,7 +36,7 @@ ajuste_MR = pd.DataFrame([[0,0,0,0]], columns=['M', 'm', 'b', 'Archivo'])
 for i in rango:
     MRi = MRB[MRB['Archivo']==i]
     l = len(MRi)
-    url = f'Datos3/hysteresis_deg_{i}.dat' 
+    url = f'Data_B/hysteresis_deg_{i}.dat' 
     columnas = ['Corriente', 'MOKE', 'Hall', 'MR']
     df = pd.read_csv(url, delim_whitespace=True, header =None, names = columnas)
     df['t']=range(len(df))
@@ -63,125 +63,8 @@ ajuste_MR = ajuste_MR.iloc[1:].reset_index(drop=True)
 
 ajuste_MR.to_csv('pendientes_B.csv', index=False)
         
-# %% Ajuste sigmoide creciente
-# Función de crecimiento sigmoide (solo la parte ascendente)
-def sigmoide_creciente(x, L, k, x_0):
-    return L * (1 - np.exp(-k * (x - x_0)))
+# %% Prediction model
 
-# Datos
-x = ajuste_MR['M'].values
-y = ajuste_MR['m'].values
-
-# Ajuste de la sigmoide creciente
-params, _ = curve_fit(sigmoide_creciente, x, y, p0=[max(y), 1, np.median(x)])
-
-# Visualización
-x_vals = np.linspace(x.min(), x.max(), 500)
-y_fit = sigmoide_creciente(x_vals, *params)
-
-plt.figure(figsize=(8,6))
-plt.scatter(x, y, color=palette[0], alpha=0.5, label='Datos')
-plt.plot(x_vals, y_fit, '--', color=palette[1], label='Ajuste sigmoide creciente')
-plt.xlabel('M')
-plt.ylabel('m')
-plt.title('Ajuste sigmoide creciente')
-plt.legend()
-plt.grid(True)
-plt.show()
-
-print(f"Parámetros ajustados: L={params[0]:.4f}, k={params[1]:.4f}, x_0={params[2]:.4f}")
-
-# %% Ajuste sigmoide creciente (incertidumbre)
-# Función de crecimiento sigmoide (solo la parte ascendente)
-def sigmoide_creciente(x, L, k, x_0):
-    return L * (1 - np.exp(-k * (x - x_0)))
-
-# Datos
-x = ajuste_MR['M'].values
-y = ajuste_MR['m'].values
-
-# Ajuste de la sigmoide creciente
-params, covariance_matrix = curve_fit(sigmoide_creciente, x, y, p0=[max(y), 1, np.median(x)])
-#params, covariance_matrix = curve_fit(sigmoide_gen, x, y, p0=[2,12])
-
-# Calcular incertidumbre (desviación estándar de los parámetros)
-uncertainties = np.sqrt(np.diag(covariance_matrix))
-
-# Crear un rango de valores x para dibujar la curva ajustada y sus incertidumbres
-x_vals = np.linspace(x.min(), x.max(), 500)
-y_fit = sigmoide_creciente(x_vals, *params)
-
-# Calcular las bandas de incertidumbre
-y_upper = sigmoide_creciente(x_vals, *(params + uncertainties))
-y_lower = sigmoide_creciente(x_vals, *(params - uncertainties))
-
-plt.figure(figsize=(8,6))
-# Visualización
-plt.scatter(x, y, color=palette[0], alpha=0.3, label='Datos')
-plt.plot(x_vals, y_fit, '--', color=palette[1], label='Ajuste sigmoide creciente')
-plt.axvline(15, color=palette[3], linewidth=2)
-
-# Banda de incertidumbre
-plt.fill_between(x_vals, y_lower, y_upper, color=palette[1], alpha=0.3, label='Incertidumbre del ajuste')
-
-plt.xlabel('M')
-plt.ylabel('m')
-plt.title('Ajuste sigmoide creciente con incertidumbre')
-plt.legend()
-#plt.grid(True)
-plt.show()
-
-# Mostrar los parámetros ajustados y sus incertidumbres
-print("Parámetros ajustados:")
-print(f"L = {params[0]:.4f} ± {uncertainties[0]:.4f}")
-print(f"k = {params[1]:.4f} ± {uncertainties[1]:.4f}")
-print(f"x_0 = {params[2]:.4f} ± {uncertainties[2]:.4f}")
-
-# %% Ajuste sigmoide generalizada
-def sigmoide_gen (x,a,b):
-    return np.log(a**(x-b)/(1+a**(x-b)))
-
-# Datos
-d = ajuste_MR[ajuste_MR['M']<-25]
-x = d['M'].values
-y = d['m'].values
-
-# Ajuste de la sigmoide generalizada
-params, _ = curve_fit(sigmoide_gen, x, y, p0=[2,12])
-
-# Visualización
-x_vals = np.linspace(x.min(), x.max(), 500)
-y_fit = sigmoide_gen(x_vals, *params)
-
-coeffs = np.polyfit(x, y, deg=2)
-p = np.poly1d(coeffs)
-print("Coeficientes del polinomio ajustado:", coeffs)
-
-# Evaluar el polinomio en un rango suave de x para graficar
-x1_fit = np.linspace(15, max(x), 100)
-y1_fit = p(x1_fit)
-
-plt.figure(figsize=(8,6))
-plt.scatter(x, y, color=palette[0], alpha=0.3, label='Datos')
-plt.plot(x1_fit, y1_fit, '--', color=palette[2], label='Ajuste polinómico')
-
-plt.plot(x_vals, y_fit, '--', color=palette[1], label='Ajuste sigmoide generalizada')
-plt.axvline(15, color=palette[3], linewidth=2)
-
-# params, _ = curve_fit(sigmoide_creciente, x, y, p0=[max(y), 1, np.median(x)])
-# Visualización
-# y_fit = sigmoide_creciente(x_vals, *params)
-# plt.plot(x_vals, y_fit, '--', color=palette[2], label='Ajuste sigmoide creciente')
-
-plt.xlabel('M')
-plt.ylabel('m')
-#plt.title('Ajuste sigmoide generalizada')
-plt.legend()
-plt.show()
-
-print(f"Parámetros ajustados: a={params[0]:.4f}, b={params[1]:.4f}")
-
-# %% Constant fit
 pendientes_B = pd.read_csv('pendientes_B.csv')
 
 x = pendientes_B['M'].values
@@ -217,9 +100,22 @@ plt.legend(frameon=True,facecolor='white',edgecolor='lightgrey',framealpha=0.9,
 plt.savefig('pendientes_B.pdf')
 plt.show()
 
-# %% Prediction with slope method
+# %% Prediction metrics
+# %%% Prediction function
 
 def crear_pred_m ():
+    '''
+
+    Returns
+    -------
+    pred_m : TYPE
+        Dataframe with initial and final time, MR signal and file of the precursor sequences.
+    
+    Computes a linear regression for the MR signal in a short window (10).
+    Obtains the slope and compares it with a fixed given threshold.
+    Creates a prediction for avalanches.
+
+    '''
     rango = range(0,182)
     columnas = ['Corriente', 'MOKE', 'Hall','MR']
     pred_m = pd.DataFrame([[0,0,0,0]], columns=['ti', 'tf','MR', 'Archivo'])
@@ -227,7 +123,7 @@ def crear_pred_m ():
         if j % 10 == 0:
             print(j)
         predj = []
-        url = f'Datos3/hysteresis_deg_{j}.dat'   
+        url = f'Data_B/hysteresis_deg_{j}.dat'   
         df = pd.read_csv(url, delim_whitespace=True, header =None, names = columnas)
         df['t']=range(len(df))
         df = df[df['Corriente']>=0.036290]       
@@ -277,9 +173,31 @@ def crear_pred_m ():
     return pred_m
     
 
-# %%
+# %% Avalanches and precursors
+# %%% Plot function
 def aval_plot(avMR, avMO, avP, i):
-    url = f'Datos3/hysteresis_deg_{i}.dat' 
+    '''
+
+    Parameters
+    ----------
+    avMR : TYPE
+        Avalanche MR Dataframe
+    avMO : TYPE
+        Avalanche MOKE Dataframe
+    avP : TYPE
+        Precursors MR Dataframe
+    i : TYPE
+        File index
+
+    Returns
+    -------
+    None.
+    
+    Creates a plot with the MR and MOKE signal in terms of the Voltage.
+    Marks avalanches in both signals and precursors for the MR signal.
+
+    '''
+    url = f'Data_B/hysteresis_deg_{i}.dat' 
     columnas = ['Corriente', 'MOKE','Hall', 'MR']
     df = pd.read_csv(url, delim_whitespace=True, header =None, names = columnas)
     df['t']=range(len(df))     
@@ -325,8 +243,29 @@ def aval_plot(avMR, avMO, avP, i):
     plt.savefig(f'predictoresB_{i}.pdf')
     plt.show()
 
-# %% Precursors metrics
+# %%% Precursors metrics function
 def verificar_prediccion (df, df_aval, ventana=4):
+    '''
+
+    Parameters
+    ----------
+    df : TYPE
+        Precursors Dataframe.
+    df_aval : TYPE
+        MR avalanches Dataframe.
+    ventana : TYPE, optional
+        DESCRIPTION. The default is 4. 
+        Length of the window to verify the occurrence of an avalanche after a precursor. 
+
+    Returns
+    -------
+    list
+        [0] = Number of Avalanches detected.
+        [1] = Number of False Positives.
+        [2] = Precision,
+        [3] = Number of actual avalanches.
+
+    '''
     l = len(df)
     df['Result']=0
     df_aval['M-Aux'] = 0
@@ -348,12 +287,12 @@ def verificar_prediccion (df, df_aval, ventana=4):
     TE = 1-FP/l # Success rate (TE='Tasa de éxito')
     return ([A,FP, TE, l])
 
-# %% Precursor metrics - data set A
+# %%% Precursor metrics
 #pred_m_B = crear_pred_m()
 #pred_m_B.to_csv('pred_m_B.csv', index=False)
 pred_m_B = pd.read_csv('pred_m_B.csv')
 metricas_m = verificar_prediccion(pred_m_B, MRB)
 print(metricas_m)
 
-# %%
+# %%% Plot
 aval_plot(MRB, MOB, pred_m_B, 52)
